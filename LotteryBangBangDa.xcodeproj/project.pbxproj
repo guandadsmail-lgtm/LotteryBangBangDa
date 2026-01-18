@@ -7,13 +7,43 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		F21D1F872F1A7B0B00F1A810 /* 彩票棒棒哒.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "彩票棒棒哒.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F21D1F872F1A7B0B00F1A810 /* LotteryBangBangDa.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LotteryBangBangDa.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		F21D1F892F1A7B0B00F1A810 /* 彩票棒棒哒 */ = {
+		F21D1F892F1A7B0B00F1A810 /* LotteryBangBangDa */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "彩票棒棒哒";
+			path = LotteryBangBangDa;
+			sourceTree = "<group>";
+		};
+		F21D1F962F1A7B4500F1A810 /* Views */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Views;
+			sourceTree = "<group>";
+		};
+		F21D1F972F1A7B5300F1A810 /* Models */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Models;
+			sourceTree = "<group>";
+		};
+		F21D1F982F1A7B7A00F1A810 /* ViewModels */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		F21D1F992F1A7B8800F1A810 /* Physics */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Physics;
+			sourceTree = "<group>";
+		};
+		F21D1FC32F1B6E7A00F1A810 /* Managers */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Managers;
+			sourceTree = "<group>";
+		};
+		F25A2A8C2F1D2B340025E32E /* Resources */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Resources;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -32,7 +62,13 @@
 		F21D1F7E2F1A7B0B00F1A810 = {
 			isa = PBXGroup;
 			children = (
-				F21D1F892F1A7B0B00F1A810 /* 彩票棒棒哒 */,
+				F25A2A8C2F1D2B340025E32E /* Resources */,
+				F21D1FC32F1B6E7A00F1A810 /* Managers */,
+				F21D1F992F1A7B8800F1A810 /* Physics */,
+				F21D1F982F1A7B7A00F1A810 /* ViewModels */,
+				F21D1F972F1A7B5300F1A810 /* Models */,
+				F21D1F962F1A7B4500F1A810 /* Views */,
+				F21D1F892F1A7B0B00F1A810 /* LotteryBangBangDa */,
 				F21D1F882F1A7B0B00F1A810 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -40,7 +76,7 @@
 		F21D1F882F1A7B0B00F1A810 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				F21D1F872F1A7B0B00F1A810 /* 彩票棒棒哒.app */,
+				F21D1F872F1A7B0B00F1A810 /* LotteryBangBangDa.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,9 +84,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		F21D1F862F1A7B0B00F1A810 /* 彩票棒棒哒 */ = {
+		F21D1F862F1A7B0B00F1A810 /* LotteryBangBangDa */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = F21D1F922F1A7B0C00F1A810 /* Build configuration list for PBXNativeTarget "彩票棒棒哒" */;
+			buildConfigurationList = F21D1F922F1A7B0C00F1A810 /* Build configuration list for PBXNativeTarget "LotteryBangBangDa" */;
 			buildPhases = (
 				F21D1F832F1A7B0B00F1A810 /* Sources */,
 				F21D1F842F1A7B0B00F1A810 /* Frameworks */,
@@ -61,13 +97,19 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				F21D1F892F1A7B0B00F1A810 /* 彩票棒棒哒 */,
+				F21D1F892F1A7B0B00F1A810 /* LotteryBangBangDa */,
+				F21D1F962F1A7B4500F1A810 /* Views */,
+				F21D1F972F1A7B5300F1A810 /* Models */,
+				F21D1F982F1A7B7A00F1A810 /* ViewModels */,
+				F21D1F992F1A7B8800F1A810 /* Physics */,
+				F21D1FC32F1B6E7A00F1A810 /* Managers */,
+				F25A2A8C2F1D2B340025E32E /* Resources */,
 			);
-			name = "彩票棒棒哒";
+			name = LotteryBangBangDa;
 			packageProductDependencies = (
 			);
 			productName = "彩票棒棒哒";
-			productReference = F21D1F872F1A7B0B00F1A810 /* 彩票棒棒哒.app */;
+			productReference = F21D1F872F1A7B0B00F1A810 /* LotteryBangBangDa.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -85,7 +127,7 @@
 					};
 				};
 			};
-			buildConfigurationList = F21D1F822F1A7B0B00F1A810 /* Build configuration list for PBXProject "彩票棒棒哒" */;
+			buildConfigurationList = F21D1F822F1A7B0B00F1A810 /* Build configuration list for PBXProject "LotteryBangBangDa" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -99,7 +141,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				F21D1F862F1A7B0B00F1A810 /* 彩票棒棒哒 */,
+				F21D1F862F1A7B0B00F1A810 /* LotteryBangBangDa */,
 			);
 		};
 /* End PBXProject section */
@@ -313,7 +355,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		F21D1F822F1A7B0B00F1A810 /* Build configuration list for PBXProject "彩票棒棒哒" */ = {
+		F21D1F822F1A7B0B00F1A810 /* Build configuration list for PBXProject "LotteryBangBangDa" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				F21D1F902F1A7B0C00F1A810 /* Debug */,
@@ -322,7 +364,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		F21D1F922F1A7B0C00F1A810 /* Build configuration list for PBXNativeTarget "彩票棒棒哒" */ = {
+		F21D1F922F1A7B0C00F1A810 /* Build configuration list for PBXNativeTarget "LotteryBangBangDa" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				F21D1F932F1A7B0C00F1A810 /* Debug */,
