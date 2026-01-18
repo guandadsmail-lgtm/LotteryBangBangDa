@@ -2,26 +2,30 @@ import SwiftUI
 import SpriteKit
 import Foundation
 
+// 阶段控制
 enum LotteryPhase {
-    case red
-    case blue
-    case idle
+    case red  // 红球阶段
+    case blue // 蓝球阶段
+    case idle // 空闲
 }
 
 class LottoScene: SKScene {
     private var hasContentCreated = false
     var lotteryType: LotteryType
     
+    // MARK: - 节点引用
     private var turbulenceField: SKFieldNode?
     private var vortexField: SKFieldNode?
     private var doorNode: SKShapeNode?
     
+    // 容器参数
     private var containerRadius: CGFloat = 190.0
     private let centerOffsetY: CGFloat = 40.0
     private let doorArcAngle: CGFloat = 0.32
     
     let MAX_SPEED: CGFloat = 350.0
     
+    // 🚦 状态机
     private var isExtracting = false
     private var extractedCount = 0
     private var targetCount = 0
@@ -121,7 +125,7 @@ class LottoScene: SKScene {
     @objc func startRedPhase(_ notification: Notification) {
         guard let type = notification.object as? LotteryType, type == self.lotteryType else { return }
         
-        // 🎵 开始搅拌声音
+        // 🎵 开始循环播放背景音
         AudioManager.shared.playLoop("mixer_loop")
         
         forceReset()
@@ -144,7 +148,7 @@ class LottoScene: SKScene {
     @objc func startBluePhase(_ notification: Notification) {
         guard let type = notification.object as? LotteryType, type == self.lotteryType else { return }
         
-        // 🎵 开始搅拌声音
+        // 🎵 开始循环播放背景音
         AudioManager.shared.playLoop("mixer_loop")
         
         self.removeAllActions()
@@ -157,6 +161,8 @@ class LottoScene: SKScene {
     }
     
     @objc func resetScene() {
+        // 重置时强制停止声音
+        AudioManager.shared.stopLoop("mixer_loop")
         forceReset()
         fillBalls(isRed: true)
     }
@@ -285,8 +291,14 @@ class LottoScene: SKScene {
         extractedCount += 1
         ballNode.physicsBody = nil
         
-        // 🎵 播放掉球声
+        // 🎵 播放单个球掉落声
         AudioManager.shared.play("ball_drop")
+        
+        // 🔥🔥 核心修改：检测是否所有球都抓完了 🔥🔥
+        if self.extractedCount >= self.targetCount {
+            // 🛑 任务完成，停止背景轰鸣声
+            AudioManager.shared.stopLoop("mixer_loop")
+        }
         
         let dropTarget = CGPoint(x: 0, y: -self.size.height/2 + 20)
         ballNode.run(SKAction.sequence([
@@ -347,6 +359,9 @@ class LottoScene: SKScene {
     }
 
     func stopStirring() {
+        // 🔥 这里不再停止声音，让声音延续到吸球结束
+        // AudioManager.shared.stopLoop("mixer_loop")
+        
         vortexField?.strength = 0
         turbulenceField?.strength = 0
         physicsWorld.gravity = CGVector(dx: 0, dy: -6.0)
