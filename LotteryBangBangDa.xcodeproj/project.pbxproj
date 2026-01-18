@@ -46,6 +46,11 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
+		F25A2AA42F1D3CE50025E32E /* Utils */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Utils;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -62,6 +67,7 @@
 		F21D1F7E2F1A7B0B00F1A810 = {
 			isa = PBXGroup;
 			children = (
+				F25A2AA42F1D3CE50025E32E /* Utils */,
 				F25A2A8C2F1D2B340025E32E /* Resources */,
 				F21D1FC32F1B6E7A00F1A810 /* Managers */,
 				F21D1F992F1A7B8800F1A810 /* Physics */,
@@ -104,6 +110,7 @@
 				F21D1F992F1A7B8800F1A810 /* Physics */,
 				F21D1FC32F1B6E7A00F1A810 /* Managers */,
 				F25A2A8C2F1D2B340025E32E /* Resources */,
+				F25A2AA42F1D3CE50025E32E /* Utils */,
 			);
 			name = LotteryBangBangDa;
 			packageProductDependencies = (
