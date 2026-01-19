@@ -1,271 +1,187 @@
 import SwiftUI
 
-// MARK: - 历史记录页面
 struct HistoryListView: View {
     @Environment(\.dismiss) var dismiss
-    @State private var records: [LotteryResult] = []
+    @State private var historyRecords: [LotteryResult] = []
     
-    // 多选相关状态
-    @State private var isSelectionMode = false
-    @State private var selectedIds = Set<UUID>()
-    
-    // 复制成功的提示
-    @State private var showCopyToast = false
-    @State private var copyCount = 0
+    // 多选相关
+    @State private var selectedRecordIds = Set<UUID>()
+    @State private var editMode: EditMode = .inactive
     
     var body: some View {
         NavigationView {
             ZStack {
-                Color.black.ignoresSafeArea()
+                Color(hex: "050505").ignoresSafeArea()
                 
-                if records.isEmpty {
-                    emptyView
+                if historyRecords.isEmpty {
+                    VStack(spacing: 15) {
+                        Image(systemName: "doc.text.magnifyingglass")
+                            .font(.system(size: 50))
+                            .foregroundColor(.gray)
+                        Text("暂无开奖记录")
+                            .foregroundColor(.gray)
+                    }
                 } else {
-                    VStack(spacing: 0) {
-                        // 列表区域
-                        List {
-                            ForEach(records) { record in
-                                HStack(spacing: 12) {
-                                    // 1. 复选框
-                                    if isSelectionMode {
-                                        Button(action: {
-                                            toggleSelection(for: record.id)
-                                        }) {
-                                            Image(systemName: selectedIds.contains(record.id) ? "checkmark.circle.fill" : "circle")
-                                                .font(.title2)
-                                                .foregroundColor(selectedIds.contains(record.id) ? .blue : .gray)
-                                        }
-                                        .buttonStyle(.plain)
-                                        .transition(.scale.combined(with: .opacity))
-                                    }
-                                    
-                                    // 2. 原始记录行
-                                    HistoryRow(record: record)
-                                        .onTapGesture {
-                                            if isSelectionMode {
-                                                toggleSelection(for: record.id)
-                                            }
-                                        }
-                                }
-                                .listRowBackground(Color.white.opacity(0.1))
-                                .listRowSeparator(.hidden)
+                    VStack {
+                        List(selection: $selectedRecordIds) {
+                            ForEach(historyRecords) { record in
+                                HistoryRow(record: record)
+                                    .listRowBackground(Color.clear)
+                                    .listRowSeparator(.hidden)
+                                    .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 12, trailing: 16))
+                                    .tag(record.id)
                             }
-                            .onDelete(perform: deleteItems)
                         }
                         .listStyle(.plain)
+                        .environment(\.editMode, $editMode)
                         
-                        // 3. 底部批量操作栏
-                        if isSelectionMode {
-                            VStack {
-                                Divider().background(Color.gray)
-                                HStack {
-                                    Button("全选") {
-                                        if selectedIds.count == records.count {
-                                            selectedIds.removeAll()
-                                        } else {
-                                            selectedIds = Set(records.map { $0.id })
-                                        }
+                        if editMode == .active && !selectedRecordIds.isEmpty {
+                            HStack {
+                                Text("已选 \(selectedRecordIds.count) 条")
+                                    .foregroundColor(.gray)
+                                Spacer()
+                                Button(action: copySelected) {
+                                    HStack {
+                                        Image(systemName: "doc.on.doc")
+                                        Text("复制选中")
                                     }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(Color.blue)
                                     .foregroundColor(.white)
-                                    
-                                    Spacer()
-                                    
-                                    Button(action: copySelectedItems) {
-                                        HStack {
-                                            Image(systemName: "doc.on.doc")
-                                            Text("复制已选 (\(selectedIds.count))")
-                                        }
-                                        .font(.headline)
-                                        .foregroundColor(.white)
-                                        .padding(.horizontal, 20)
-                                        .padding(.vertical, 10)
-                                        .background(Capsule().fill(selectedIds.isEmpty ? Color.gray : Color.blue))
-                                    }
-                                    .disabled(selectedIds.isEmpty)
+                                    .cornerRadius(20)
                                 }
-                                .padding()
-                                .background(Color(hex: "1C1C1E"))
                             }
-                            .transition(.move(edge: .bottom))
+                            .padding()
+                            .background(Color(hex: "1C1C1E"))
                         }
                     }
                 }
-                
-                // 复制成功提示
-                if showCopyToast {
-                    VStack {
-                        Spacer()
-                        Text("成功复制 \(copyCount) 条记录")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .padding()
-                            .background(Capsule().fill(Color.gray.opacity(0.9)))
-                            .padding(.bottom, 50)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
-                    .zIndex(100)
-                }
             }
-            .navigationTitle("摇号历史")
+            .navigationTitle("历史记录")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    if isSelectionMode {
-                        Button("取消") {
-                            withAnimation {
-                                isSelectionMode = false
-                                selectedIds.removeAll()
-                            }
-                        }
-                    } else {
-                        Button(role: .destructive, action: {
-                            HistoryManager.shared.clear()
-                            records = []
-                        }) {
-                            Image(systemName: "trash")
-                                .foregroundColor(.red)
-                        }
-                    }
+                    Button("关闭") { dismiss() }
+                        .foregroundColor(.white)
                 }
-                
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    if isSelectionMode {
-                        EmptyView()
-                    } else {
-                        HStack {
-                            Button(action: {
-                                withAnimation { isSelectionMode = true }
-                            }) {
-                                Text("选择")
+                    HStack {
+                        if !historyRecords.isEmpty {
+                            Button(editMode == .active ? "完成" : "选择") {
+                                withAnimation {
+                                    editMode = editMode == .active ? .inactive : .active
+                                    selectedRecordIds.removeAll()
+                                }
                             }
-                            Button("关闭") { dismiss() }
+                        }
+                        
+                        if editMode == .inactive {
+                            Button {
+                                HistoryManager.shared.clear()
+                                loadData()
+                            } label: {
+                                Image(systemName: "trash")
+                                    .foregroundColor(.red)
+                            }
                         }
                     }
                 }
             }
         }
-        .preferredColorScheme(.dark)
         .onAppear {
-            records = HistoryManager.shared.loadAll()
+            loadData()
         }
     }
     
-    // MARK: - 逻辑方法
-    
-    var emptyView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "doc.text.magnifyingglass")
-                .font(.system(size: 60))
-                .foregroundColor(.gray)
-            Text("暂无开奖记录").foregroundColor(.gray)
-        }
+    func loadData() {
+        historyRecords = HistoryManager.shared.loadAll()
     }
     
-    func toggleSelection(for id: UUID) {
-        if selectedIds.contains(id) {
-            selectedIds.remove(id)
-        } else {
-            selectedIds.insert(id)
-        }
-    }
-    
-    func deleteItems(at offsets: IndexSet) {
-        // 暂不支持左滑删除，防止逻辑冲突
-    }
-    
-    func copySelectedItems() {
-        let selectedRecords = records.filter { selectedIds.contains($0.id) }
-        if selectedRecords.isEmpty { return }
-        
-        let copyString = selectedRecords.map { record in
-            "\(record.type.rawValue): \(record.displayString)"
-        }.joined(separator: "\n")
-        
-        UIPasteboard.general.string = copyString
-        
+    func copySelected() {
+        let selected = historyRecords.filter { selectedRecordIds.contains($0.id) }
+        let text = selected.map { $0.displayString }.joined(separator: "\n")
+        UIPasteboard.general.string = text
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
-        
-        copyCount = selectedRecords.count
         withAnimation {
-            showCopyToast = true
-            isSelectionMode = false
-            selectedIds.removeAll()
-        }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-            withAnimation { showCopyToast = false }
+            editMode = .inactive
+            selectedRecordIds.removeAll()
         }
     }
 }
 
-// MARK: - 单行历史记录视图
 struct HistoryRow: View {
     let record: LotteryResult
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(record.type.rawValue)
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(Capsule().fill(Color.gray.opacity(0.3)))
-                
+                BadgeLabel(text: record.type.rawValue, color: themeColor)
                 Spacer()
-                
                 Text(record.date.formatted(date: .abbreviated, time: .shortened))
                     .font(.caption)
                     .foregroundColor(.gray)
             }
             
-            HStack {
-                ForEach(record.primaryBalls, id: \.self) { ball in
-                    MiniBallView(text: "\(ball.number)", color: .red)
+            HStack(spacing: 8) {
+                // 🔴 红球 (使用 .lotteryRed)
+                ForEach(record.primaryBalls, id: \.self) { number in
+                    MiniBall(number: number, color: .lotteryRed)
                 }
                 
+                // 🔵 蓝球 (使用 .lotteryBlue)
                 if let blues = record.secondaryBalls, !blues.isEmpty {
-                    Text("+")
-                        .foregroundColor(.gray)
-                        .font(.caption)
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.3))
+                        .frame(width: 1, height: 20)
                     
-                    ForEach(blues, id: \.self) { ball in
-                        MiniBallView(text: "\(ball.number)", color: .blue)
+                    ForEach(blues, id: \.self) { number in
+                        MiniBall(number: number, color: .lotteryBlue)
                     }
                 }
             }
         }
-        .padding()
+        .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color(hex: "1C1C1E"))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                )
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.1), lineWidth: 1))
         )
-        .padding(.vertical, 4)
+        .contextMenu {
+            Button {
+                UIPasteboard.general.string = record.displayString
+            } label: {
+                Label("复制", systemImage: "doc.on.doc")
+            }
+        }
+    }
+    
+    var themeColor: Color {
+        switch record.type.style {
+        case .bigMixer: return .blue
+        case .slotMachine: return .red
+        }
     }
 }
 
-// MARK: - 迷你小球组件
-struct MiniBallView: View {
+struct BadgeLabel: View {
     let text: String
     let color: Color
-    
+    var body: some View {
+        Text(text).font(.caption.bold()).foregroundColor(color).padding(.horizontal, 8).padding(.vertical, 4).background(color.opacity(0.2)).cornerRadius(8)
+    }
+}
+
+struct MiniBall: View {
+    let number: Int
+    let color: Color
     var body: some View {
         ZStack {
-            Circle()
-                .fill(
-                    LinearGradient(colors: [color.opacity(0.8), color], startPoint: .topLeading, endPoint: .bottomTrailing)
-                )
-            
-            Text(text)
-                .font(.system(size: 12, weight: .bold, design: .rounded))
-                .foregroundColor(.white)
+            // 使用统一的 color
+            Circle().fill(LinearGradient(colors: [color.opacity(0.9), color.opacity(0.6)], startPoint: .topLeading, endPoint: .bottomTrailing))
+            Text(String(format: "%02d", number)).font(.system(size: 14, weight: .bold, design: .monospaced)).foregroundColor(.white)
         }
         .frame(width: 28, height: 28)
-        .shadow(color: color.opacity(0.5), radius: 2, x: 0, y: 1)
     }
 }

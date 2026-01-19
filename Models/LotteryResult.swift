@@ -1,24 +1,16 @@
 import Foundation
 
-// 加上 Codable 协议，才能存入硬盘
-struct LotteryBall: Identifiable, Hashable, Codable {
-    var id = UUID()
-    let number: Int
-    let color: String // "red", "blue"
-}
-
 struct LotteryResult: Identifiable, Codable {
-    var id = UUID()
-    let type: LotteryType
+    let id: UUID
     let date: Date
-    let primaryBalls: [LotteryBall]    // 红球
-    let secondaryBalls: [LotteryBall]? // 蓝球
+    let type: LotteryType // 确保这里引用的是 Models/LotteryType.swift 里的枚举
+    let primaryBalls: [Int]
+    let secondaryBalls: [Int]?
     
-    // 方便显示的格式化字符串
     var displayString: String {
-        let p = primaryBalls.map { String(format: "%02d", $0.number) }.joined(separator: " ")
+        let p = primaryBalls.map { String(format: "%02d", $0) }.joined(separator: " ")
         if let s = secondaryBalls, !s.isEmpty {
-            let b = s.map { String(format: "%02d", $0.number) }.joined(separator: " ")
+            let b = s.map { String(format: "%02d", $0) }.joined(separator: " ")
             return "\(p) + \(b)"
         }
         return p
