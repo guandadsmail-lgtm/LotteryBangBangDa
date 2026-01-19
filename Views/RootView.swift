@@ -21,7 +21,7 @@ struct RootView: View {
                 // A. 顶部聚光灯
                 RadialGradient(
                     gradient: Gradient(colors: [
-                        topLightColor.opacity(0.7), // 顶部光
+                        topLightColor.opacity(0.9), // 顶部光
                         Color.clear
                     ]),
                     center: .top,
@@ -32,7 +32,7 @@ struct RootView: View {
                 // B. 底部反光灯 (新增)
                 RadialGradient(
                     gradient: Gradient(colors: [
-                        bottomLightColor.opacity(0.7), // 底部光 (稍弱一点)
+                        bottomLightColor.opacity(0.9), // 底部光 (稍弱一点)
                         Color.clear
                     ]),
                     center: .bottom,
@@ -302,7 +302,7 @@ struct ControlPanelView: View {
                     Text("RESET")
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
                 }
-                .foregroundColor(.white.opacity(0.3))
+                .foregroundColor(.white.opacity(0.8))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
                 .background(
@@ -315,7 +315,8 @@ struct ControlPanelView: View {
         .padding(.vertical, 10)
         .background(
             ZStack {
-                Color.black.opacity(0.6)
+                Color.black.opacity(0.8)
+         
                 Rectangle().foregroundStyle(.ultraThinMaterial)
             }
             .cornerRadius(40, corners: [.topLeft, .topRight])

@@ -1,11 +1,11 @@
 import SwiftUI
 import Combine
 
-// MARK: - 单个滚轮组件
+// MARK: - 单个滚轮组件 (保持不变，只改了宽度传入方式)
 struct SlotColumnView: View {
     let index: Int
     @Binding var targetNumber: Int?
-    let columnWidth: CGFloat
+    let columnWidth: CGFloat // 宽度由外部决定
     
     @State private var currentSymbol: Int = 0
     @State private var nextSymbol: Int = 1
@@ -13,22 +13,31 @@ struct SlotColumnView: View {
     @State private var isAnimating = false
     @State private var blurAmount: CGFloat = 0
     
+    // 字体大小根据宽度动态调整
+    var fontSize: CGFloat {
+        columnWidth * 0.7
+    }
+    
     var body: some View {
         ZStack {
+            // 背景框
             RoundedRectangle(cornerRadius: 8)
                 .fill(LinearGradient(colors: [.black, Color(white: 0.15), .black], startPoint: .top, endPoint: .bottom))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.1), lineWidth: 1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                )
             
             GeometryReader { geo in
                 VStack(spacing: 0) {
                     Text("\(currentSymbol)")
-                        .font(.system(size: columnWidth * 0.8, weight: .bold, design: .rounded))
+                        .font(.system(size: fontSize, weight: .bold, design: .rounded))
                         .foregroundColor(targetNumber == nil ? .red.opacity(0.7) : .red)
                         .frame(width: geo.size.width, height: geo.size.height)
                         .blur(radius: blurAmount)
                     
                     Text("\(nextSymbol)")
-                        .font(.system(size: columnWidth * 0.8, weight: .bold, design: .rounded))
+                        .font(.system(size: fontSize, weight: .bold, design: .rounded))
                         .foregroundColor(.red.opacity(0.7))
                         .frame(width: geo.size.width, height: geo.size.height)
                         .blur(radius: blurAmount)
@@ -37,7 +46,8 @@ struct SlotColumnView: View {
             }
             .clipped()
         }
-        .frame(width: columnWidth, height: columnWidth * 1.6)
+        .frame(width: columnWidth, height: columnWidth * 1.5) // 高度按比例设定
+        .shadow(color: .black.opacity(0.5), radius: 3, x: 0, y: 2)
         .onChange(of: targetNumber) { _, newValue in
             if newValue == nil && !isAnimating {
                 isAnimating = true
@@ -67,6 +77,7 @@ struct SlotColumnView: View {
                 }
                 
                 AudioManager.shared.play("slot_stop")
+                HapticManager.shared.impact(style: .light)
                 
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     isAnimating = false
@@ -92,7 +103,7 @@ struct SlotColumnView: View {
     
     func performScrollStep(interval: Double, startTime: Date?) {
         withAnimation(.linear(duration: interval)) {
-            scrollOffset = columnWidth * 1.6
+            scrollOffset = columnWidth * 1.5
         }
         
         DispatchQueue.main.asyncAfter(deadline: .now() + interval) {
@@ -104,7 +115,7 @@ struct SlotColumnView: View {
     }
 }
 
-// MARK: - 老虎机主视图
+// MARK: - 老虎机主视图 (核心布局修改)
 struct SlotMachineView: View {
     let type: LotteryType
     var onFinished: (([Int]) -> Void)?
@@ -118,40 +129,60 @@ struct SlotMachineView: View {
         _targetNumbers = State(initialValue: Array(repeating: 0, count: type.slotColumns))
     }
     
-    let colWidth: CGFloat = 75
-    
     var body: some View {
         GeometryReader { geo in
-            HStack(alignment: .center, spacing: 20) {
+            let screenW = geo.size.width
+            // 🔥 动态计算列宽
+            // 逻辑：(屏幕宽 - 左右留白 - 摇杆预留空间) / 列数
+            // 但为了居中，我们尽量让数字区占据中间部分，摇杆悬浮
+            // 简单算法：限制最大宽度 70，最小 40，保证间距
+            let totalSpacing = CGFloat(type.slotColumns - 1) * 8.0
+            let availableW = screenW * 0.75 // 给数字区 75% 的宽度，剩下的留给摇杆
+            let calculatedW = (availableW - totalSpacing) / CGFloat(type.slotColumns)
+            let itemW = min(max(calculatedW, 45), 75) // 限制在 45~75 之间
+            
+            ZStack {
+                // 1. 摇杆 (放在 ZStack 底层或顶层都可以，这里放在右侧绝对位置)
+                HStack {
+                    Spacer()
+                    LeverView(angle: leverAngle)
+                        .padding(.trailing, 20) // 距离右边的距离
+                }
+                .zIndex(1) // 保证摇杆可点击
+                
+                // 2. 数字显示区 (绝对居中)
                 VStack(spacing: 15) {
                     if type.slotColumns == 5 {
-                        HStack(spacing: 8) { ForEach(0..<3, id: \.self) { i in slotItem(i) } }
-                            .padding(10).background(slotBackground)
-                        HStack(spacing: 8) { ForEach(3..<5, id: \.self) { i in slotItem(i) } }
-                            .padding(10).background(slotBackground)
-                    } else {
-                        HStack(spacing: 8) { ForEach(0..<type.slotColumns, id: \.self) { i in slotItem(i) } }
-                            .padding(10).background(slotBackground)
-                    }
-                }
-                
-                VStack(spacing: 0) {
-                    ZStack(alignment: .bottom) {
-                        Capsule().fill(Color.gray).frame(width: 8, height: 50)
-                        VStack(spacing: 0) {
-                            Circle()
-                                .fill(RadialGradient(colors: [.red, .red.opacity(0.8)], center: .center, startRadius: 2, endRadius: 15))
-                                .frame(width: 26, height: 26).shadow(radius: 2)
-                            Rectangle()
-                                .fill(LinearGradient(colors: [.gray, .black], startPoint: .leading, endPoint: .trailing))
-                                .frame(width: 4, height: 60)
+                        // 排列五：双层布局 (上3 下2)
+                        // 确保上下两排视觉对齐
+                        VStack(spacing: 12) {
+                            HStack(spacing: 8) {
+                                ForEach(0..<3, id: \.self) { i in slotItem(i, width: itemW) }
+                            }
+                            HStack(spacing: 8) {
+                                ForEach(3..<5, id: \.self) { i in slotItem(i, width: itemW) }
+                            }
                         }
-                        .offset(y: 8)
-                        .rotationEffect(.degrees(leverAngle), anchor: .bottom)
+                        .padding(12)
+                        .background(slotBackground)
+                        
+                    } else {
+                        // 3D/排列三：单行布局
+                        HStack(spacing: 8) {
+                            ForEach(0..<type.slotColumns, id: \.self) { i in
+                                slotItem(i, width: itemW)
+                            }
+                        }
+                        .padding(12)
+                        .background(slotBackground)
                     }
                 }
+                // 这一步是关键：让数字区无视摇杆，强制在屏幕中间
+                .frame(maxWidth: .infinity, alignment: .center)
+                .offset(x: -10) // 视觉微调：稍微往左一点点，平衡右边摇杆的视觉重量
+                .zIndex(2)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(width: geo.size.width, height: geo.size.height)
         }
         .frame(height: type.slotColumns == 5 ? 320 : 200)
         .onReceive(NotificationCenter.default.publisher(for: .startSlotMachine)) { note in
@@ -166,27 +197,61 @@ struct SlotMachineView: View {
         }
     }
     
-    func slotItem(_ i: Int) -> some View {
+    // 抽取摇杆视图，代码更整洁
+    struct LeverView: View {
+        let angle: Double
+        
+        var body: some View {
+            VStack(spacing: 0) {
+                ZStack(alignment: .bottom) {
+                    // 摇杆底座
+                    Capsule()
+                        .fill(LinearGradient(colors: [.gray, .white], startPoint: .leading, endPoint: .trailing))
+                        .frame(width: 8, height: 50)
+                    
+                    // 摇杆把手 (随角度旋转)
+                    VStack(spacing: 0) {
+                        Circle()
+                            .fill(RadialGradient(colors: [.red, .red.opacity(0.8)], center: .center, startRadius: 2, endRadius: 15))
+                            .frame(width: 32, height: 32)
+                            .shadow(color: .black.opacity(0.4), radius: 4, y: 2)
+                        
+                        Rectangle()
+                            .fill(LinearGradient(colors: [.gray, .black], startPoint: .leading, endPoint: .trailing))
+                            .frame(width: 6, height: 70)
+                    }
+                    .offset(y: 10)
+                    .rotationEffect(.degrees(angle), anchor: .bottom)
+                }
+            }
+        }
+    }
+    
+    func slotItem(_ i: Int, width: CGFloat) -> some View {
         SlotColumnView(
             index: i,
             targetNumber: $targetNumbers[i],
-            columnWidth: colWidth
+            columnWidth: width
         )
     }
     
     var slotBackground: some View {
         RoundedRectangle(cornerRadius: 15)
-            .fill(Color(white: 0.05))
-            .overlay(RoundedRectangle(cornerRadius: 15).stroke(Color.red.opacity(0.6), lineWidth: 3))
-            .shadow(color: .red.opacity(0.2), radius: 10)
+            .fill(Color(hex: "151515")) // 深色背景
+            .overlay(
+                RoundedRectangle(cornerRadius: 15)
+                    .stroke(
+                        LinearGradient(colors: [.red.opacity(0.6), .red.opacity(0.1)], startPoint: .top, endPoint: .bottom),
+                        lineWidth: 2
+                    )
+            )
+            .shadow(color: .red.opacity(0.15), radius: 15)
     }
     
     func startSpin() {
         AudioManager.shared.playLoop("slot_roll")
         
         withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) { leverAngle = 45 }
-        
-        // 🔥 替换为管理器调用
         HapticManager.shared.impact(style: .heavy)
         
         for i in 0..<targetNumbers.count {
@@ -206,7 +271,6 @@ struct SlotMachineView: View {
         for i in 0..<type.slotColumns {
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 1.0) {
                 targetNumbers[i] = finalNums[i]
-                // 🔥 替换为管理器调用
                 HapticManager.shared.impact(style: .medium)
             }
         }

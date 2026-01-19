@@ -106,7 +106,7 @@ struct HistoryListView: View {
                     .zIndex(100)
                 }
             }
-            .navigationTitle("开奖历史")
+            .navigationTitle("摇号历史")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
