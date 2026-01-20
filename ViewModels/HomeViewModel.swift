@@ -1,77 +1,92 @@
 import SwiftUI
 import Combine
 
+// 确保通知名称存在
+extension Notification.Name {
+    static let requestStopMixing = Notification.Name("requestStopMixing")
+}
+
 class HomeViewModel: ObservableObject {
-    // MARK: - 核心状态
     @Published var currentLottery: LotteryType = .doubleColor {
         didSet { resetGame() }
     }
     
-    @Published var status: GameStatus = .idle
+    // 🔥 改名了！强制刷新 Xcode 缓存
+    @Published var status: LotteryGameStatus = .idle
+    
     @Published var selectedBalls: [(number: Int, color: String)] = []
     @Published var isSpinning: Bool = false
     @Published var isStoppingAnimation: Bool = false
     @Published var showHistory = false
-    
-    // 🔥 强制重置信号
     @Published var resetTrigger = UUID()
     
-    // 按钮文字逻辑 - 🌍 国际化修改点
     var buttonText: String {
         if isStoppingAnimation { return "..." }
         switch currentLottery.style {
         case .bigMixer:
             switch status {
-            case .idle: return String(localized: "开始摇号")
-            case .runningRed: return String(localized: "红球摇号中...")
-            case .runningBlue: return String(localized: "蓝球摇号中...")
-            case .finished: return String(localized: "再来一次")
+            case .idle:
+                return String(localized: "开始摇号")
+            case .mixingRed:
+                return String(localized: "红球搅拌中...") // 按钮禁用
+            case .extractingRed:
+                return String(localized: "红球出号中...") // 按钮禁用
+            case .waitingForBlue:
+                return String(localized: "开始蓝球") // ✅ 只有这里按钮可点
+            case .mixingBlue:
+                return String(localized: "蓝球搅拌中...") // 按钮禁用
+            case .extractingBlue:
+                return String(localized: "蓝球出号中...") // 按钮禁用
+            case .finished:
+                return String(localized: "再来一次")
             }
         case .slotMachine:
             return isSpinning ? String(localized: "停止") : String(localized: "开始")
         }
     }
     
-    // 按钮禁用逻辑
     var isButtonDisabled: Bool {
         if isStoppingAnimation { return true }
         switch currentLottery.style {
         case .bigMixer:
-            return status == .runningRed || status == .runningBlue
+            // 🔥 只有闲置、等待蓝球、或结束时，按钮才能点
+            // 其他时候（搅拌、出号）全部禁用
+            return !(status == .idle || status == .waitingForBlue || status == .finished)
         case .slotMachine:
             return false
         }
     }
     
-    // MARK: - 初始化
-    init() {
-        setupObservers()
-    }
+    init() { setupObservers() }
     
     func setupObservers() {
         NotificationCenter.default.addObserver(forName: .redPhaseFinished, object: nil, queue: .main) { [weak self] _ in
             guard let self = self else { return }
-            if self.currentLottery == .superLotto || self.currentLottery == .doubleColor {
-                self.status = .runningBlue
-                NotificationCenter.default.post(name: .startBluePhase, object: self.currentLottery)
-            } else {
-                self.status = .finished
-                self.saveRecord()
+            DispatchQueue.main.async {
+                if self.currentLottery == .superLotto || self.currentLottery == .doubleColor {
+                    self.status = .waitingForBlue
+                } else {
+                    self.status = .finished
+                    self.saveRecord()
+                }
             }
         }
         
         NotificationCenter.default.addObserver(forName: .allFinished, object: nil, queue: .main) { [weak self] _ in
-            self?.status = .finished
-            self?.saveRecord()
+            DispatchQueue.main.async {
+                self?.status = .finished
+                self?.saveRecord()
+            }
         }
     }
     
-    // MARK: - 交互逻辑
     func onButtonTap() {
-        let isNewGameStart = (currentLottery.style == .bigMixer && status == .idle) ||
-                             (currentLottery.style == .slotMachine && !isSpinning)
+        if isButtonDisabled { return }
         
-        if isNewGameStart {
+        let canStart = (currentLottery.style == .bigMixer && (status == .idle || status == .waitingForBlue)) ||
+                       (currentLottery.style == .slotMachine && !isSpinning)
+        
+        if canStart {
             if !UsageManager.shared.canPlay {
                 AudioManager.shared.play("btn_click")
                 NotificationCenter.default.post(name: .showPaywall, object: nil)
@@ -91,25 +106,27 @@ class HomeViewModel: ObservableObject {
         switch status {
         case .idle:
             resetData()
-            status = .runningRed
+            status = .mixingRed
             NotificationCenter.default.post(name: .startRedPhase, object: currentLottery)
-        case .runningRed, .runningBlue:
-            break
+            
+        case .waitingForBlue:
+            status = .mixingBlue
+            NotificationCenter.default.post(name: .startBluePhase, object: currentLottery)
+            
         case .finished:
             resetGame()
+            
+        default:
+            break
         }
     }
     
     private func handleSlotMachineTap() {
         AudioManager.shared.play("btn_click")
-        
         if isSpinning {
-            // 🛑 停止逻辑
-            // isStoppingAnimation = true // 为了流畅体验，这里可以不用中间态，直接发通知
             NotificationCenter.default.post(name: .stopSlotMachine, object: currentLottery)
             isStoppingAnimation = true
         } else {
-            // ▶️ 开始逻辑
             AudioManager.shared.playLoop("slot_roll")
             resetData()
             isSpinning = true
@@ -117,7 +134,6 @@ class HomeViewModel: ObservableObject {
         }
     }
     
-    // MARK: - 数据回调
     func addBall(number: Int, color: String) {
         DispatchQueue.main.async {
             self.selectedBalls.append((number, color))
@@ -136,7 +152,6 @@ class HomeViewModel: ObservableObject {
     func resetGame() {
         AudioManager.shared.stopLoop("slot_roll")
         AudioManager.shared.play("btn_click")
-        
         status = .idle
         resetData()
         isSpinning = false
@@ -152,19 +167,19 @@ class HomeViewModel: ObservableObject {
     private func saveRecord() {
         let reds = selectedBalls.filter { $0.color == "red" }.map { $0.number }.sorted()
         let blues = selectedBalls.filter { $0.color == "blue" }.map { $0.number }.sorted()
-        
         HistoryManager.shared.add(type: currentLottery, reds: reds, blues: blues)
         UsageManager.shared.incrementUsage()
-        
-        if currentLottery.style == .slotMachine {
-            AudioManager.shared.play("win")
-        }
+        if currentLottery.style == .slotMachine { AudioManager.shared.play("win") }
     }
 }
 
-enum GameStatus {
+// 🔥 全新枚举名：LotteryGameStatus
+enum LotteryGameStatus {
     case idle
-    case runningRed
-    case runningBlue
+    case mixingRed
+    case extractingRed
+    case waitingForBlue
+    case mixingBlue
+    case extractingBlue
     case finished
 }

@@ -122,8 +122,12 @@ struct TopFloatingIsland: View {
             }
             Spacer()
             VStack(spacing: 6) {
-                // 🌍 这里的彩种名字是在 LotteryType 枚举里定义的，如果是英文需要去 Enum 里改，或者给 Enum 加一个 localizedName 属性。目前先不动，因为彩种本身中文名更直观。
-                Text(viewModel.currentLottery.rawValue).font(.system(size: 24, weight: .heavy, design: .rounded)).foregroundColor(.white).shadow(color: themeColor.opacity(0.5), radius: 8)
+                Text(viewModel.currentLottery.displayName)
+                    .font(.system(size: 24, weight: .heavy, design: .rounded))
+                    .foregroundColor(.white)
+                    .shadow(color: themeColor.opacity(0.5), radius: 8)
+                    .id(viewModel.currentLottery)
+                
                 HStack(spacing: 6) {
                     ForEach(LotteryType.allCases.indices, id: \.self) { index in
                         Capsule().fill(viewModel.currentLottery == LotteryType.allCases[index] ? .white : .white.opacity(0.2)).frame(width: viewModel.currentLottery == LotteryType.allCases[index] ? 16 : 6, height: 4).animation(.spring(response: 0.3, dampingFraction: 0.6), value: viewModel.currentLottery)
@@ -188,9 +192,16 @@ struct ControlPanelView: View {
     @Binding var toastMessage: String
     @Binding var showSettings: Bool
     
+    var statusText: String {
+        switch viewModel.status {
+        case .idle, .finished: return String(localized: "准备就绪")
+        case .waitingForBlue: return String(localized: "等待蓝球")
+        default: return String(localized: "计算中...")
+        }
+    }
+    
     var body: some View {
         VStack(spacing: 24) {
-            
             ZStack {
                 RoundedRectangle(cornerRadius: 20)
                     .fill(Color.black.opacity(0.6))
@@ -210,8 +221,7 @@ struct ControlPanelView: View {
                 } else {
                     HStack(spacing: 8) {
                         Circle().fill(Color.gray.opacity(0.3)).frame(width: 6, height: 6)
-                        // 🌍 国际化修改：READY -> 准备就绪, PROCESSING -> 计算中
-                        Text(viewModel.status == .idle ? "READY" : "PROCESSING...")
+                        Text(statusText)
                             .font(.system(.caption2, design: .monospaced).bold())
                             .foregroundColor(.gray.opacity(0.5))
                             .tracking(2)
@@ -235,8 +245,7 @@ struct ControlPanelView: View {
             }) {
                 HStack(spacing: 6) {
                     Image(systemName: "arrow.counterclockwise").font(.system(size: 10, weight: .bold))
-                    // 🌍 国际化修改：RESET -> 重置
-                    Text("RESET").font(.system(size: 10, weight: .bold, design: .monospaced))
+                    Text(String(localized: "重置")).font(.system(size: 10, weight: .bold, design: .monospaced))
                 }
                 .foregroundColor(.white.opacity(0.3))
                 .padding(.horizontal, 12)
@@ -287,7 +296,6 @@ struct ControlPanelView: View {
         }
         UIPasteboard.general.string = copyString
         HapticManager.shared.notification(type: .success)
-        // 🌍 国际化修改：Toast 文字
         toastMessage = String(localized: "已复制：") + copyString
         withAnimation { showToast = true }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { withAnimation { showToast = false } }
@@ -296,11 +304,12 @@ struct ControlPanelView: View {
 
 struct MainButtonView: View {
     @ObservedObject var viewModel: HomeViewModel
+    
     var body: some View {
         Button(action: {
             HapticManager.shared.impact(style: .medium)
             withAnimation { viewModel.onButtonTap() }
-        }) {
+        }, label: {
             ZStack {
                 if !viewModel.isButtonDisabled {
                     RoundedRectangle(cornerRadius: 35).fill(LinearGradient(colors: [.orange, .lotteryRed], startPoint: .topLeading, endPoint: .bottomTrailing)).blur(radius: 12).opacity(0.4).frame(width: 140, height: 40).offset(y: 8)
@@ -311,8 +320,13 @@ struct MainButtonView: View {
                     .shadow(color: .black.opacity(0.3), radius: 5, x: 0, y: 5)
                 
                 HStack(spacing: 8) {
-                    if viewModel.isSpinning || viewModel.status == .runningRed || viewModel.status == .runningBlue {
-                        ProgressView().tint(.white)
+                    // 🔥 这里的状态枚举也更新了
+                    if viewModel.isSpinning ||
+                       viewModel.status == .mixingRed ||
+                       viewModel.status == .extractingRed ||
+                       viewModel.status == .mixingBlue ||
+                       viewModel.status == .extractingBlue {
+                        ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .white))
                     }
                     Text(viewModel.buttonText)
                         .font(.system(size: 20, weight: .bold, design: .rounded))
@@ -321,7 +335,7 @@ struct MainButtonView: View {
             }
             .frame(height: 72)
             .scaleEffect(viewModel.isButtonDisabled ? 0.98 : 1.0)
-        }
+        })
         .disabled(viewModel.isButtonDisabled)
         .frame(maxWidth: .infinity)
     }

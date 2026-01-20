@@ -8,22 +8,32 @@ enum LotteryPhase {
 
 class LottoScene: SKScene {
     // MARK: - 1. 物理配置参数
-    private let TURBULENCE_DURATION: TimeInterval = 5.5
-    private let MAX_SPEED: CGFloat = 450.0
+    private let MAX_SPEED: CGFloat = 400.0
     private let CONTAINER_RADIUS: CGFloat = 190.0
-    private let DOOR_ARC_ANGLE: CGFloat = 0.35
+    private let DOOR_ARC_ANGLE: CGFloat = 0.28
     private let centerOffsetY: CGFloat = 40.0
     
     var lotteryType: LotteryType
     private var hasContentCreated = false
+    
+    // 节点
+    private var doorNode: SKShapeNode?
+    private var containerVisuals: SKNode? // 🔥 视觉容器，用于摇晃动画
+    
+    // 物理场
     private var turbulenceField: SKFieldNode?
     private var vortexField: SKFieldNode?
-    private var doorNode: SKShapeNode?
+    private var stirringField: SKFieldNode?
     
+    // 状态控制
     private var isExtracting = false
     private var extractedCount = 0
     private var targetCount = 0
     private var isBluePhase = false
+    
+    // 核心锁
+    private var isDoorOpen = false
+    private var lastProcessTime: TimeInterval = 0
     
     var onBallSelected: ((Int, String) -> Void)?
     
@@ -60,139 +70,103 @@ class LottoScene: SKScene {
         NotificationCenter.default.addObserver(self, selector: #selector(resetScene), name: .resetScene, object: nil)
     }
     
-    // MARK: - 2. 3D 玻璃容器构建
+    // MARK: - 2. 容器构建 (视觉与物理分离)
     func createStaticContainer() {
-        // --- A. 物理层 (看不见) ---
         let startAngle = -CGFloat.pi / 2 + DOOR_ARC_ANGLE / 2
         let endAngle = -CGFloat.pi / 2 - DOOR_ARC_ANGLE / 2 + CGFloat.pi * 2
         let wallPath = UIBezierPath(arcCenter: .zero, radius: CONTAINER_RADIUS, startAngle: startAngle, endAngle: endAngle, clockwise: true)
         
+        // 1. 物理墙体 (保持静止，确保不漏球)
         let physicsNode = SKShapeNode(path: wallPath.cgPath)
         physicsNode.strokeColor = .clear
         physicsNode.lineWidth = 1
         physicsNode.position = CGPoint(x: 0, y: centerOffsetY)
-        
         let wallBody = SKPhysicsBody(edgeChainFrom: wallPath.cgPath)
         wallBody.friction = 0.1
-        wallBody.restitution = 0.2
+        wallBody.restitution = 0.1
         wallBody.categoryBitMask = GameEngineConfig.categoryWall
         physicsNode.physicsBody = wallBody
         addChild(physicsNode)
         
-        // --- B. 视觉后壁 (Back Layer) ---
+        // 2. 视觉容器 (用于摇晃)
+        let visuals = SKNode()
+        visuals.position = CGPoint(x: 0, y: centerOffsetY)
+        addChild(visuals)
+        self.containerVisuals = visuals
+        
+        // 后玻璃
         let backGlass = SKShapeNode(circleOfRadius: CONTAINER_RADIUS)
-        backGlass.position = CGPoint(x: 0, y: centerOffsetY)
         backGlass.fillColor = SKColor(white: 0.0, alpha: 0.2)
         backGlass.strokeColor = SKColor(white: 1.0, alpha: 0.1)
         backGlass.lineWidth = 10
         backGlass.zPosition = -10
-        addChild(backGlass)
+        visuals.addChild(backGlass)
         
-        // --- C. 视觉前壁 (Front Layer) ---
-        // 1. 玻璃整体罩
+        // 前玻璃
         let frontGlass = SKShapeNode(circleOfRadius: CONTAINER_RADIUS)
-        frontGlass.position = CGPoint(x: 0, y: centerOffsetY)
         frontGlass.fillColor = SKColor(white: 1.0, alpha: 0.05)
         frontGlass.strokeColor = SKColor(white: 1.0, alpha: 0.3)
         frontGlass.lineWidth = 2
         frontGlass.zPosition = 100
-        addChild(frontGlass)
+        visuals.addChild(frontGlass)
         
-        // 🔥 2. 主高光 (两头尖中间粗)
+        // 🔥 主高光
         let mainRadius = CONTAINER_RADIUS - 10
         let h1Start = CGFloat.pi * 0.60
         let h1End = CGFloat.pi * 0.85
-        let mainSpan = h1End - h1Start
-        
-        let mainPath = createCrescentPath(
-            radius: mainRadius,
-            startAngle: h1Start,
-            endAngle: h1End,
-            maxThickness: 10.0
-        )
-        
+        let mainPath = createCrescentPath(radius: mainRadius, startAngle: h1Start, endAngle: h1End, maxThickness: 10.0)
         let mainNode = SKShapeNode(path: mainPath)
-        mainNode.position = CGPoint(x: 0, y: centerOffsetY)
         mainNode.fillColor = SKColor(white: 1.0, alpha: 0.6)
         mainNode.strokeColor = .clear
         mainNode.zPosition = 101
-        addChild(mainNode)
+        visuals.addChild(mainNode)
         
-        // 🔥 3. 副高光 (偏移40，长度1/3，两头尖)
-        let subRadius = mainRadius - 40 // 向内缩40
-        let subSpan = mainSpan / 3.0    // 长度1/3
-        
-        let centerAngle = h1Start + mainSpan / 2.0
-        let subStart = centerAngle - subSpan / 2.0
-        let subEnd = centerAngle + subSpan / 2.0
-        
-        let subPath = createCrescentPath(
-            radius: subRadius,
-            startAngle: subStart,
-            endAngle: subEnd,
-            maxThickness: 8.0
-        )
-        
+        // 🔥 恢复：短弧线高光
+        let subRadius = mainRadius - 30
+        let subStart = h1Start + 0.1
+        let subEnd = subStart + (h1End - h1Start) * 0.4
+        let subPath = createCrescentPath(radius: subRadius, startAngle: subStart, endAngle: subEnd, maxThickness: 8.0)
         let subNode = SKShapeNode(path: subPath)
-        subNode.position = CGPoint(x: 0, y: centerOffsetY)
-        subNode.fillColor = SKColor(white: 1.0, alpha: 0.4)
+        subNode.fillColor = SKColor(white: 1.0, alpha: 0.3)
         subNode.strokeColor = .clear
         subNode.zPosition = 101
-        addChild(subNode)
+        visuals.addChild(subNode)
         
-        // 4. 底部边缘光
-        let rimPath = UIBezierPath(arcCenter: .zero, radius: CONTAINER_RADIUS - 5, startAngle: -CGFloat.pi * 0.8, endAngle: -CGFloat.pi * 0.2, clockwise: true)
+        // 边缘
+        let rimPath = UIBezierPath(arcCenter: .zero, radius: CONTAINER_RADIUS - 5, startAngle: 0, endAngle: CGFloat.pi * 2, clockwise: true)
         let rimNode = SKShapeNode(path: rimPath.cgPath)
-        rimNode.position = CGPoint(x: 0, y: centerOffsetY)
         rimNode.strokeColor = SKColor(white: 1.0, alpha: 0.2)
         rimNode.lineWidth = 4
         rimNode.lineCap = .round
         rimNode.zPosition = 101
-        addChild(rimNode)
+        visuals.addChild(rimNode)
 
-        // --- D. 门和力场 ---
         createDoor()
         setupPhysicsFields()
     }
     
-    // ✨ 核心算法：生成两头尖、中间粗的月牙路径
     func createCrescentPath(radius: CGFloat, startAngle: CGFloat, endAngle: CGFloat, maxThickness: CGFloat) -> CGPath {
         let path = UIBezierPath()
         let steps = 30
         let angleSpan = endAngle - startAngle
-        
-        // 外弧线
         for i in 0...steps {
             let t = CGFloat(i) / CGFloat(steps)
             let currentAngle = startAngle + angleSpan * t
             let thicknessFactor = sin(t * CGFloat.pi)
-            let currentThickness = maxThickness * thicknessFactor
-            
-            let r = radius + currentThickness / 2.0
+            let r = radius + maxThickness * thicknessFactor / 2.0
             let x = r * cos(currentAngle)
             let y = r * sin(currentAngle)
-            
-            if i == 0 {
-                path.move(to: CGPoint(x: x, y: y))
-            } else {
-                path.addLine(to: CGPoint(x: x, y: y))
-            }
+            if i == 0 { path.move(to: CGPoint(x: x, y: y)) } else { path.addLine(to: CGPoint(x: x, y: y)) }
         }
-        
-        // 内弧线
         for i in (0...steps).reversed() {
             let t = CGFloat(i) / CGFloat(steps)
             let currentAngle = startAngle + angleSpan * t
             let thicknessFactor = sin(t * CGFloat.pi)
-            let currentThickness = maxThickness * thicknessFactor
-            
-            let r = radius - currentThickness / 2.0
+            let r = radius - maxThickness * thicknessFactor / 2.0
             let x = r * cos(currentAngle)
             let y = r * sin(currentAngle)
-            
             path.addLine(to: CGPoint(x: x, y: y))
         }
-        
         path.close()
         return path.cgPath
     }
@@ -209,20 +183,37 @@ class LottoScene: SKScene {
         vor.position = CGPoint(x: 0, y: centerOffsetY)
         addChild(vor)
         vortexField = vor
+        
+        let stir = SKFieldNode.linearGravityField(withVector: vector_float3(1, 0, 0))
+        stir.strength = 0
+        stir.position = CGPoint(x: 0, y: centerOffsetY)
+        stir.falloff = 0
+        addChild(stir)
+        stirringField = stir
     }
     
+    // 🔥 门控修正：初始化即焊死
     func createDoor() {
         doorNode?.removeFromParent()
-        let doorStart = -CGFloat.pi / 2 - DOOR_ARC_ANGLE / 2
-        let doorEnd = -CGFloat.pi / 2 + DOOR_ARC_ANGLE / 2
-        let doorPath = UIBezierPath(arcCenter: .zero, radius: CONTAINER_RADIUS, startAngle: doorStart, endAngle: doorEnd, clockwise: true)
+        let startAngle = -CGFloat.pi / 2 - DOOR_ARC_ANGLE / 2
+        let endAngle = -CGFloat.pi / 2 + DOOR_ARC_ANGLE / 2
+        let doorPath = UIBezierPath(arcCenter: .zero, radius: CONTAINER_RADIUS, startAngle: startAngle, endAngle: endAngle, clockwise: true)
+        
         let node = SKShapeNode(path: doorPath.cgPath)
         node.strokeColor = .white.withAlphaComponent(0.4)
         node.lineWidth = 4
         node.position = CGPoint(x: 0, y: centerOffsetY)
+        
+        // 直接赋予物理体，防止开局漏球
+        let body = SKPhysicsBody(edgeChainFrom: doorPath.cgPath)
+        body.categoryBitMask = GameEngineConfig.categoryWall
+        body.friction = 0.0
+        body.restitution = 0.0
+        node.physicsBody = body
+        
         addChild(node)
         doorNode = node
-        closeDoor()
+        isDoorOpen = false
     }
     
     @objc func startRedPhase(_ notification: Notification) {
@@ -233,20 +224,18 @@ class LottoScene: SKScene {
         isBluePhase = false
         targetCount = lotteryType.redConfig.count
         fillBalls(isRed: true)
-        startPhysicsSequence()
+        startMixingPhase()
     }
     
     @objc func startBluePhase(_ notification: Notification) {
         guard let type = notification.object as? LotteryType, type == self.lotteryType else { return }
         AudioManager.shared.playLoop("mixer_loop")
         
-        self.removeAllActions()
+        forceReset()
         isBluePhase = true
-        extractedCount = 0
-        isExtracting = false
         targetCount = lotteryType.blueConfig.count
-        closeDoor()
-        startPhysicsSequence()
+        fillBalls(isRed: false)
+        startMixingPhase()
     }
     
     @objc func resetScene() {
@@ -258,12 +247,20 @@ class LottoScene: SKScene {
     private func forceReset() {
         self.removeAllActions()
         self.children.forEach { if $0.name == "ball" { $0.removeAllActions() } }
+        containerVisuals?.removeAllActions()
+        containerVisuals?.zRotation = 0 // 视觉回正
+        
         extractedCount = 0
         isExtracting = false
+        lastProcessTime = 0
+        
         physicsWorld.gravity = CGVector(dx: 0, dy: -9.8)
         closeDoor()
+        
         turbulenceField?.strength = 0
         vortexField?.strength = 0
+        stirringField?.strength = 0
+        stirringField?.removeAllActions()
     }
     
     func fillBalls(isRed: Bool) {
@@ -275,7 +272,7 @@ class LottoScene: SKScene {
     }
     
     func createOneBall(number: Int, color: SKColor) {
-        let r = GameEngineConfig.ballRadius
+        let r = GameEngineConfig.ballRadius * 0.9
         let ball = SKShapeNode(circleOfRadius: r)
         ball.name = "ball"
         let safe = CONTAINER_RADIUS * 0.5
@@ -295,7 +292,8 @@ class LottoScene: SKScene {
         body.mass = 0.04
         body.restitution = 0.6
         body.friction = 0.2
-        body.linearDamping = 0.1
+        body.linearDamping = 0.2
+        body.usesPreciseCollisionDetection = true
         body.categoryBitMask = GameEngineConfig.categoryBall
         body.collisionBitMask = GameEngineConfig.categoryWall | GameEngineConfig.categoryBall
         ball.physicsBody = body
@@ -304,123 +302,173 @@ class LottoScene: SKScene {
     
     func removeBalls() { self.children.filter { $0.name == "ball" }.forEach { $0.removeFromParent() } }
     
-    private func startPhysicsSequence() {
-        vortexField?.strength = 0.5
-        turbulenceField?.strength = 25.0
+    // MARK: - 3. 搅拌逻辑 (定制参数版)
+    private func startMixingPhase() {
+        // 🔥 要求2：力量 0.2，不要 turbulence
+        vortexField?.strength = 0.01
+        turbulenceField?.strength = 2
+        stirringField?.strength = 0.1 // 也不用 stirring，全靠 impulse
         
-        turbulenceField?.animationSpeed = 4.0
         physicsWorld.gravity = CGVector(dx: 0, dy: 0)
-        enumerateChildNodes(withName: "ball") { node, _ in
-            node.physicsBody?.applyImpulse(CGVector(dx: CGFloat.random(in: -10...10), dy: CGFloat.random(in: -10...10)))
+        
+        // 🔥 要求4：容器 15度 (0.26弧度) 摇晃
+        let rockLeft = SKAction.rotate(toAngle: 0.26, duration: 0.8)
+        let rockRight = SKAction.rotate(toAngle: -0.26, duration: 0.8)
+        containerVisuals?.run(SKAction.repeatForever(SKAction.sequence([rockLeft, rockRight])))
+        
+        // 🔥 您指定的暴力搅拌循环
+        let mixAction = SKAction.run { [weak self] in
+            self?.enumerateChildNodes(withName: "ball") { node, _ in
+                let randomDx = CGFloat.random(in: -15...15)
+                let randomDy = CGFloat.random(in: -15...15)
+                node.physicsBody?.applyImpulse(CGVector(dx: randomDx, dy: randomDy))
+            }
+        }
+        let mixWait = SKAction.wait(forDuration: 0.15)
+        let mixSequence = SKAction.sequence([mixAction, mixWait])
+        
+        // 搅拌 2 秒后停止
+        let mixingDuration = SKAction.repeat(mixSequence, count: 40)
+        
+        let stopMixing = SKAction.run { [weak self] in
+            self?.stopStirringAndStartExtracting()
         }
         
-        let waitTurbulence = SKAction.wait(forDuration: TURBULENCE_DURATION)
-        let calmDown = SKAction.run { [weak self] in self?.stopStirring() }
-        let waitSettle = SKAction.wait(forDuration: 1.0)
-        let startExtract = SKAction.run { [weak self] in self?.startExtractingLoop() }
-        run(SKAction.sequence([waitTurbulence, calmDown, waitSettle, startExtract]))
+        run(SKAction.sequence([mixingDuration, stopMixing]))
     }
     
-    private func stopStirring() {
+    private func stopStirringAndStartExtracting() {
+        // 视觉容器回正
+        containerVisuals?.removeAllActions()
+        containerVisuals?.run(SKAction.rotate(toAngle: 0, duration: 0.5))
+        
         turbulenceField?.strength = 0
         vortexField?.strength = 0
+        
         physicsWorld.gravity = CGVector(dx: 0, dy: -15.0)
+        
         enumerateChildNodes(withName: "ball") { node, _ in
             node.physicsBody?.angularVelocity *= 0.2
             node.physicsBody?.velocity = CGVector(dx: 0, dy: -100)
         }
+        
+        let waitSettle = SKAction.wait(forDuration: 1.0)
+        let startExtract = SKAction.run { [weak self] in
+            self?.isExtracting = true
+            self?.openDoorStep()
+        }
+        run(SKAction.sequence([waitSettle, startExtract]))
     }
     
-    private func startExtractingLoop() {
-        isExtracting = true
-        let releaseAction = SKAction.run { [weak self] in
-            guard let self = self else { return }
-            if self.extractedCount < self.targetCount {
-                self.openDoor()
-                self.shakeContainer()
-            }
-        }
-        let interval = SKAction.wait(forDuration: 1.2)
-        let seq = SKAction.sequence([releaseAction, interval])
-        let loop = SKAction.repeat(seq, count: targetCount + 5)
-        let finish = SKAction.run { [weak self] in
-            self?.isExtracting = false
-            self?.closeDoor()
-        }
-        run(SKAction.sequence([loop, finish]))
-    }
-    
-    func shakeContainer() {
+    // MARK: - 4. 脉冲出球逻辑
+    private func openDoorStep() {
+        if extractedCount >= targetCount { return }
+        
+        openDoor()
+        
         enumerateChildNodes(withName: "ball") { node, _ in
-            if node.position.y < self.centerOffsetY - self.CONTAINER_RADIUS + 50 {
-                node.physicsBody?.applyImpulse(CGVector(dx: CGFloat.random(in: -3...3), dy: 15))
+            if node.position.y < self.centerOffsetY - self.CONTAINER_RADIUS + 60 {
+                node.physicsBody?.applyImpulse(CGVector(dx: CGFloat.random(in: -8...8), dy: CGFloat.random(in: 10...30)))
             }
+        }
+        
+        let timeout = SKAction.wait(forDuration: 3.0)
+        let retry = SKAction.run { [weak self] in
+            if self?.isDoorOpen == true { self?.openDoorStep() }
+        }
+        removeAction(forKey: "RetryKick")
+        run(SKAction.sequence([timeout, retry]), withKey: "RetryKick")
+    }
+    
+    private func scheduleNextBall() {
+        removeAction(forKey: "RetryKick")
+        closeDoor()
+        
+        if extractedCount < targetCount {
+            let wait = SKAction.wait(forDuration: 1.2)
+            let nextStep = SKAction.run { [weak self] in self?.openDoorStep() }
+            run(SKAction.sequence([wait, nextStep]))
+        } else {
+            finishCurrentPhase()
         }
     }
     
     private func openDoor() {
+        if isDoorOpen { return }
         doorNode?.physicsBody = nil
         doorNode?.strokeColor = .white.withAlphaComponent(0.1)
+        isDoorOpen = true
     }
     
     private func closeDoor() {
         guard let door = doorNode else { return }
-        if door.physicsBody != nil { return }
-        let startAngle = -CGFloat.pi / 2 - DOOR_ARC_ANGLE / 2
-        let endAngle = -CGFloat.pi / 2 + DOOR_ARC_ANGLE / 2
-        let doorPath = UIBezierPath(arcCenter: .zero, radius: CONTAINER_RADIUS, startAngle: startAngle, endAngle: endAngle, clockwise: true)
-        let body = SKPhysicsBody(edgeChainFrom: doorPath.cgPath)
-        body.categoryBitMask = GameEngineConfig.categoryWall
-        body.friction = 0.0
-        body.restitution = 0.0
-        door.physicsBody = body
+        
+        if door.physicsBody == nil {
+            let startAngle = -CGFloat.pi / 2 - DOOR_ARC_ANGLE / 2
+            let endAngle = -CGFloat.pi / 2 + DOOR_ARC_ANGLE / 2
+            let doorPath = UIBezierPath(arcCenter: .zero, radius: CONTAINER_RADIUS, startAngle: startAngle, endAngle: endAngle, clockwise: true)
+            
+            let body = SKPhysicsBody(edgeChainFrom: doorPath.cgPath)
+            body.categoryBitMask = GameEngineConfig.categoryWall
+            body.friction = 0.0
+            body.restitution = 0.0
+            door.physicsBody = body
+        }
         door.strokeColor = .white.withAlphaComponent(0.4)
+        isDoorOpen = false
     }
     
+    // MARK: - 实时检测 (去除了 3D 缩放逻辑)
     override func update(_ currentTime: TimeInterval) {
-        let ballRadius = GameEngineConfig.ballRadius
-        let maxDist = CONTAINER_RADIUS - ballRadius
+        if !isExtracting || !isDoorOpen { return }
+        if currentTime - lastProcessTime < 0.5 { return }
+        
+        let maxDist = CONTAINER_RADIUS - (GameEngineConfig.ballRadius * 0.9)
+        
         for node in children {
             guard node.name == "ball", let body = node.physicsBody else { continue }
             if node.userData?["isProcessed"] as? Bool == true { continue }
-            if body.velocity.dx != 0 || body.velocity.dy != 0 {
-                let speed = sqrt(body.velocity.dx*body.velocity.dx + body.velocity.dy*body.velocity.dy)
-                if speed > MAX_SPEED {
-                    let ratio = MAX_SPEED / speed
-                    body.velocity = CGVector(dx: body.velocity.dx * ratio, dy: body.velocity.dy * ratio)
-                }
-            }
+            
+            if body.velocity.dy < -600 { body.velocity.dy = -600 }
+            
             let dx = node.position.x
             let dy = node.position.y - centerOffsetY
             let dist = sqrt(dx*dx + dy*dy)
-            if dist > maxDist {
+            
+            if dist > CONTAINER_RADIUS {
                 let angle = atan2(dy, dx)
                 let angleDiff = abs(angle - (-CGFloat.pi / 2))
-                let isAtDoor = angleDiff < (DOOR_ARC_ANGLE / 1.1)
-                let isDoorOpen = (doorNode?.physicsBody == nil)
-                if isAtDoor && isDoorOpen && isExtracting {
-                    body.applyForce(CGVector(dx: 0, dy: -20.0))
-                    if dist > CONTAINER_RADIUS + 30 { handleBallEscape(node) }
+                let isAtDoor = angleDiff < (DOOR_ARC_ANGLE / 0.8)
+                
+                if isAtDoor {
+                    handleBallEscape(node, currentTime: currentTime)
+                    break
                 } else {
-                    if dist > maxDist + 5 {
-                        node.position.x = cos(angle) * (maxDist - 2)
-                        node.position.y = sin(angle) * (maxDist - 2) + centerOffsetY
-                        body.velocity = CGVector(dx: -body.velocity.dx * 0.5, dy: -body.velocity.dy * 0.5)
+                    if dist > maxDist + 10 {
+                        node.position = CGPoint(x: 0, y: centerOffsetY)
+                        body.velocity = .zero
                     }
                 }
             }
         }
-        if extractedCount >= targetCount && targetCount > 0 { closeDoor() }
     }
     
-    private func handleBallEscape(_ ballNode: SKNode) {
-        guard ballNode.userData?["isProcessed"] == nil else { return }
+    private func handleBallEscape(_ ballNode: SKNode, currentTime: TimeInterval) {
+        lastProcessTime = currentTime
+        extractedCount += 1
+        
         ballNode.userData = ["isProcessed": true]
         ballNode.physicsBody = nil
-        extractedCount += 1
+        
+        scheduleNextBall()
+        
+        let capturedColor = self.isBluePhase ? "blue" : "red"
         AudioManager.shared.play("ball_drop")
+        
         if extractedCount >= targetCount { AudioManager.shared.stopLoop("mixer_loop") }
+        
         let dropTarget = CGPoint(x: 0, y: -self.size.height/2 + 60)
+        
         ballNode.run(SKAction.sequence([
             SKAction.move(to: dropTarget, duration: 0.3),
             SKAction.fadeOut(withDuration: 0.15),
@@ -429,15 +477,13 @@ class LottoScene: SKScene {
                 guard let self = self else { return }
                 if let label = ballNode.children.first(where: { $0 is SKLabelNode }) as? SKLabelNode,
                    let text = label.text, let number = Int(text) {
-                    let colorName = self.isBluePhase ? "blue" : "red"
-                    self.onBallSelected?(number, colorName)
+                    self.onBallSelected?(number, capturedColor)
                 }
-                if self.extractedCount >= self.targetCount { self.finishCurrentPhase() }
             }
         ]))
+        
         let generator = UIImpactFeedbackGenerator(style: .heavy)
         generator.impactOccurred()
-        closeDoor()
     }
     
     private func finishCurrentPhase() {
@@ -461,3 +507,4 @@ class LottoScene: SKScene {
         }
     }
 }
+

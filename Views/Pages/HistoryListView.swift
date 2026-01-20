@@ -1,3 +1,4 @@
+
 import SwiftUI
 
 struct HistoryListView: View {
@@ -117,11 +118,12 @@ struct HistoryRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                BadgeLabel(text: record.type.rawValue, color: themeColor)
-                Spacer()
-                Text(record.date.formatted(date: .abbreviated, time: .shortened))
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                BadgeLabel(text: record.type.displayName, color: themeColor)
+                                
+                                Spacer()
+                                Text(record.date.formatted(date: .abbreviated, time: .shortened))
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
             }
             
             HStack(spacing: 8) {
@@ -185,3 +187,4 @@ struct MiniBall: View {
         .frame(width: 28, height: 28)
     }
 }
+

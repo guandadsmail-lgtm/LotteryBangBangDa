@@ -33,54 +33,6 @@
         }
       }
     },
-    "PROCESSING..." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PROCESSING..."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "摇号中"
-          }
-        }
-      }
-    },
-    "READY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "READY"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "READY"
-          }
-        }
-      }
-    },
-    "RESET" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "RESET"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "重置"
-          }
-        }
-      }
-    },
     "体验设置" : {
       "comment" : "Section Header: Experience",
       "localizations" : {
@@ -162,6 +114,22 @@
         }
       }
     },
+    "准备就绪" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ready"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "准备就绪"
+          }
+        }
+      }
+    },
     "历史记录" : {
       "localizations" : {
         "en" : {
@@ -174,6 +142,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "历史记录"
+          }
+        }
+      }
+    },
+    "双色球" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Double Color Ball"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "双色球"
           }
         }
       }
@@ -206,6 +190,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "复制选中"
+          }
+        }
+      }
+    },
+    "大乐透" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Super Lotto"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "大乐透"
           }
         }
       }
@@ -306,6 +306,22 @@
         }
       }
     },
+    "开始蓝球" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start Blue Ball "
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "开始蓝球"
+          }
+        }
+      }
+    },
     "当前版本" : {
       "localizations" : {
         "en" : {
@@ -398,6 +414,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "我们严守底线。不提供彩票购买，不引导博彩，不涉及任何资金交易。"
+          }
+        }
+      }
+    },
+    "排列三" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Array 3"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "排列三"
+          }
+        }
+      }
+    },
+    "排列五" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Array 5"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "排列五"
           }
         }
       }
@@ -564,6 +612,22 @@
         }
       }
     },
+    "福彩3D" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3D Lotto"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "福彩3D"
+          }
+        }
+      }
+    },
     "立即解锁 %@" : {
       "localizations" : {
         "en" : {
@@ -580,18 +644,50 @@
         }
       }
     },
-    "红球摇号中..." : {
+    "等待蓝球" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Drawing Numbers…"
+            "value" : "Waiting"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "等待蓝球"
+          }
+        }
+      }
+    },
+    "红球出号中..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Processing"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "摇号中..."
+            "value" : "红球出号中..."
+          }
+        }
+      }
+    },
+    "红球搅拌中..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Red Ball Drawing"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "红球搅拌中..."
           }
         }
       }
@@ -644,18 +740,34 @@
         }
       }
     },
-    "蓝球摇号中..." : {
+    "蓝球出号中..." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Drawing Numbers…"
+            "value" : "Processing"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "摇号中..."
+            "value" : "红球出号中..."
+          }
+        }
+      }
+    },
+    "蓝球搅拌中..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blue Ball Drawing"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "蓝球搅拌中..."
           }
         }
       }
@@ -692,6 +804,22 @@
         }
       }
     },
+    "计算中..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ready"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "准备中"
+          }
+        }
+      }
+    },
     "设置" : {
       "localizations" : {
         "en" : {
@@ -720,6 +848,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "选择"
+          }
+        }
+      }
+    },
+    "重置" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重置"
           }
         }
       }
