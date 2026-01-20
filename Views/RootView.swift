@@ -26,7 +26,6 @@ struct RootView: View {
         ZStack(alignment: .top) {
             Color(hex: "050505").ignoresSafeArea()
             
-            // 1. 氛围光
             Group {
                 RadialGradient(gradient: Gradient(colors: [topLightColor.opacity(0.3), .clear]), center: .top, startRadius: 0, endRadius: 600)
                 RadialGradient(gradient: Gradient(colors: [bottomLightColor.opacity(0.2), .clear]), center: .bottom, startRadius: 0, endRadius: 500)
@@ -34,7 +33,6 @@ struct RootView: View {
             .ignoresSafeArea()
             .animation(.easeInOut(duration: 0.8), value: viewModel.currentLottery)
             
-            // 2. 机器容器
             GeometryReader { geo in
                 TabView(selection: $viewModel.currentLottery) {
                     ForEach(LotteryType.allCases) { type in
@@ -46,12 +44,10 @@ struct RootView: View {
             }
             .ignoresSafeArea()
             
-            // 3. 顶部灵动岛
             TopFloatingIsland(viewModel: viewModel)
                 .padding(.top, 10)
                 .zIndex(10)
             
-            // 提示文字
             if !UsageManager.shared.isVip {
                 Text(UsageManager.shared.remainingText)
                     .font(.caption2.monospaced())
@@ -63,7 +59,6 @@ struct RootView: View {
                     .transition(.opacity)
             }
             
-            // 4. 底部面板
             VStack {
                 Spacer()
                 ControlPanelView(
@@ -75,7 +70,6 @@ struct RootView: View {
                 .padding(.bottom, 10)
             }
             
-            // 5. Toast
             if showToast {
                 ToastView(message: toastMessage)
             }
@@ -119,7 +113,6 @@ struct ToastView: View {
     }
 }
 
-// 灵动岛
 struct TopFloatingIsland: View {
     @ObservedObject var viewModel: HomeViewModel
     var body: some View {
@@ -129,6 +122,7 @@ struct TopFloatingIsland: View {
             }
             Spacer()
             VStack(spacing: 6) {
+                // 🌍 这里的彩种名字是在 LotteryType 枚举里定义的，如果是英文需要去 Enum 里改，或者给 Enum 加一个 localizedName 属性。目前先不动，因为彩种本身中文名更直观。
                 Text(viewModel.currentLottery.rawValue).font(.system(size: 24, weight: .heavy, design: .rounded)).foregroundColor(.white).shadow(color: themeColor.opacity(0.5), radius: 8)
                 HStack(spacing: 6) {
                     ForEach(LotteryType.allCases.indices, id: \.self) { index in
@@ -172,7 +166,7 @@ struct MachineContainerView: View {
                 SlotMachineView(type: type) { numbers in viewModel.handleSlotMachineResult(numbers: numbers) }
                     .frame(width: size.width)
                     .offset(y: -20)
-                    .id(viewModel.resetTrigger) // 🔥🔥🔥 核心修复：绑定 resetTrigger，强制重置视图
+                    .id(viewModel.resetTrigger)
                 Spacer()
             }
         }
@@ -188,7 +182,6 @@ struct MachineContainerView: View {
     }
 }
 
-// ✅ 核心控制面板
 struct ControlPanelView: View {
     @ObservedObject var viewModel: HomeViewModel
     @Binding var showToast: Bool
@@ -198,7 +191,6 @@ struct ControlPanelView: View {
     var body: some View {
         VStack(spacing: 24) {
             
-            // 1. 数字展示槽
             ZStack {
                 RoundedRectangle(cornerRadius: 20)
                     .fill(Color.black.opacity(0.6))
@@ -218,6 +210,7 @@ struct ControlPanelView: View {
                 } else {
                     HStack(spacing: 8) {
                         Circle().fill(Color.gray.opacity(0.3)).frame(width: 6, height: 6)
+                        // 🌍 国际化修改：READY -> 准备就绪, PROCESSING -> 计算中
                         Text(viewModel.status == .idle ? "READY" : "PROCESSING...")
                             .font(.system(.caption2, design: .monospaced).bold())
                             .foregroundColor(.gray.opacity(0.5))
@@ -229,7 +222,6 @@ struct ControlPanelView: View {
             .frame(height: 56)
             .padding(.horizontal, 24)
             
-            // 2. 操作区
             HStack(spacing: 16) {
                 GlassButton(icon: "clock.arrow.circlepath") { viewModel.showHistory = true }
                 MainButtonView(viewModel: viewModel)
@@ -237,13 +229,13 @@ struct ControlPanelView: View {
             }
             .padding(.horizontal, 30)
             
-            // 3. 重置按钮
             Button(action: {
                 HapticManager.shared.notification(type: .warning)
                 viewModel.resetGame()
             }) {
                 HStack(spacing: 6) {
                     Image(systemName: "arrow.counterclockwise").font(.system(size: 10, weight: .bold))
+                    // 🌍 国际化修改：RESET -> 重置
                     Text("RESET").font(.system(size: 10, weight: .bold, design: .monospaced))
                 }
                 .foregroundColor(.white.opacity(0.3))
@@ -295,7 +287,8 @@ struct ControlPanelView: View {
         }
         UIPasteboard.general.string = copyString
         HapticManager.shared.notification(type: .success)
-        toastMessage = "已复制：\(copyString)"
+        // 🌍 国际化修改：Toast 文字
+        toastMessage = String(localized: "已复制：") + copyString
         withAnimation { showToast = true }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { withAnimation { showToast = false } }
     }

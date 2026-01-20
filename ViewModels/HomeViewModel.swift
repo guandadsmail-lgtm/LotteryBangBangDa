@@ -16,19 +16,19 @@ class HomeViewModel: ObservableObject {
     // 🔥 强制重置信号
     @Published var resetTrigger = UUID()
     
-    // 按钮文字逻辑
+    // 按钮文字逻辑 - 🌍 国际化修改点
     var buttonText: String {
         if isStoppingAnimation { return "..." }
         switch currentLottery.style {
         case .bigMixer:
             switch status {
-            case .idle: return "开始摇号"
-            case .runningRed: return "红球摇号中..."
-            case .runningBlue: return "蓝球摇号中..."
-            case .finished: return "再来一次"
+            case .idle: return String(localized: "开始摇号")
+            case .runningRed: return String(localized: "红球摇号中...")
+            case .runningBlue: return String(localized: "蓝球摇号中...")
+            case .finished: return String(localized: "再来一次")
             }
         case .slotMachine:
-            return isSpinning ? "停止" : "开始"
+            return isSpinning ? String(localized: "停止") : String(localized: "开始")
         }
     }
     
@@ -37,7 +37,6 @@ class HomeViewModel: ObservableObject {
         if isStoppingAnimation { return true }
         switch currentLottery.style {
         case .bigMixer:
-            // 搅拌机全自动，运行中禁用按钮
             return status == .runningRed || status == .runningBlue
         case .slotMachine:
             return false
@@ -46,9 +45,6 @@ class HomeViewModel: ObservableObject {
     
     // MARK: - 初始化
     init() {
-        // ⚠️ 测试代码：开发完请注释掉
-        // UsageManager.shared.resetTrial()
-        
         setupObservers()
     }
     
@@ -72,13 +68,11 @@ class HomeViewModel: ObservableObject {
     
     // MARK: - 交互逻辑
     func onButtonTap() {
-        // 1. 拦截检查
         let isNewGameStart = (currentLottery.style == .bigMixer && status == .idle) ||
                              (currentLottery.style == .slotMachine && !isSpinning)
         
         if isNewGameStart {
             if !UsageManager.shared.canPlay {
-                // 没次数了，也播放个点击声反馈一下
                 AudioManager.shared.play("btn_click")
                 NotificationCenter.default.post(name: .showPaywall, object: nil)
                 return
@@ -107,21 +101,16 @@ class HomeViewModel: ObservableObject {
     }
     
     private func handleSlotMachineTap() {
-        // 🔊 无论开始还是停止，都只播放清脆的点击声
         AudioManager.shared.play("btn_click")
         
         if isSpinning {
             // 🛑 停止逻辑
-            
-            // 🔥🔥🔥 关键修改：点击停止时，只改变状态，不停止背景音效！
-            // AudioManager.shared.stopLoop("slot_roll") // <--- 这一行删掉了
-            
-            isStoppingAnimation = true
+            // isStoppingAnimation = true // 为了流畅体验，这里可以不用中间态，直接发通知
             NotificationCenter.default.post(name: .stopSlotMachine, object: currentLottery)
+            isStoppingAnimation = true
         } else {
             // ▶️ 开始逻辑
             AudioManager.shared.playLoop("slot_roll")
-            
             resetData()
             isSpinning = true
             NotificationCenter.default.post(name: .startSlotMachine, object: currentLottery)
@@ -136,9 +125,7 @@ class HomeViewModel: ObservableObject {
     }
     
     func handleSlotMachineResult(numbers: [Int]) {
-        // 🔥🔥🔥 关键修改：当数字真正出来时，才停止背景音效
         AudioManager.shared.stopLoop("slot_roll")
-        
         self.selectedBalls = numbers.map { ($0, "red") }
         self.isSpinning = false
         self.isStoppingAnimation = false
@@ -147,7 +134,6 @@ class HomeViewModel: ObservableObject {
     }
     
     func resetGame() {
-        // 重置时如果老虎机还在转，必须强制关掉声音
         AudioManager.shared.stopLoop("slot_roll")
         AudioManager.shared.play("btn_click")
         
@@ -155,9 +141,7 @@ class HomeViewModel: ObservableObject {
         resetData()
         isSpinning = false
         isStoppingAnimation = false
-        
         resetTrigger = UUID()
-        
         NotificationCenter.default.post(name: .resetScene, object: nil)
     }
     
