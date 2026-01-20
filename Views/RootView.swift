@@ -1,15 +1,23 @@
 import SwiftUI
 import SpriteKit
 
+// 🔥 修复点 1：删除了这里的 extension Notification.Name，因为 Utils/Extensions.swift 里已经有了
+
 struct RootView: View {
     @StateObject private var viewModel = HomeViewModel()
+    
+    // 监听 UsageManager
+    @ObservedObject private var usageManager = UsageManager.shared
+    
     @AppStorage("hasAgreedCompliance") var hasAgreedCompliance: Bool = false
     
     @State private var showToast = false
     @State private var toastMessage = ""
     @State private var showSettings = false
     @State private var showPaywall = false
+    @State private var showLimitAlert = false
     
+    // 接收通知
     let paywallNotification = NotificationCenter.default.publisher(for: .showPaywall)
     
     var body: some View {
@@ -48,8 +56,9 @@ struct RootView: View {
                 .padding(.top, 10)
                 .zIndex(10)
             
-            if !UsageManager.shared.isVip {
-                Text(UsageManager.shared.remainingText)
+            // 🔥 修复点 2：现在 usageManager.remainingText 已经存在了，这里不会报错了
+            if !usageManager.isVip {
+                Text(usageManager.remainingText)
                     .font(.caption2.monospaced())
                     .foregroundColor(.white.opacity(0.6))
                     .padding(.horizontal, 12)
@@ -77,13 +86,27 @@ struct RootView: View {
         .statusBar(hidden: true)
         .sheet(isPresented: $viewModel.showHistory) { HistoryListView() }
         .sheet(isPresented: $showSettings) { SettingsView() }
+        
+        // 阻断弹窗
+        .alert(String(localized: "您的 10 次免费试用已结束"), isPresented: $showLimitAlert) {
+            Button(String(localized: "去升级 Pro")) {
+                showPaywall = true
+            }
+            Button(String(localized: "取消"), role: .cancel) { }
+        } message: {
+            Text(String(localized: "请升级 Pro 版以获取无限使用次数，并解锁所有高级功能。"))
+        }
         .sheet(isPresented: $showPaywall) { PaywallView() }
-        .onReceive(paywallNotification) { _ in showPaywall = true }
+        .onReceive(paywallNotification) { _ in
+            showLimitAlert = true
+        }
     }
     
     var topLightColor: Color { viewModel.currentLottery.style == .slotMachine ? .lotteryRed : .lotteryBlue }
     var bottomLightColor: Color { viewModel.currentLottery.style == .slotMachine ? .lotteryBlue : .lotteryRed }
 }
+
+// MARK: - 子视图组件保持不变
 
 struct ToastView: View {
     let message: String
@@ -320,7 +343,6 @@ struct MainButtonView: View {
                     .shadow(color: .black.opacity(0.3), radius: 5, x: 0, y: 5)
                 
                 HStack(spacing: 8) {
-                    // 🔥 这里的状态枚举也更新了
                     if viewModel.isSpinning ||
                        viewModel.status == .mixingRed ||
                        viewModel.status == .extractingRed ||
