@@ -1,27 +1,36 @@
-import Foundation
 import StoreKit
-import Combine  // ✨ 核心修复：引入 Combine 框架
-import SwiftUI  // ✨ 建议加上：确保 ObservableObject 正常工作
+import Combine
+import SwiftUI
 
-// 定义你的商品 ID (去 App Store Connect 后台填的一样)
-// ⚠️ 请确保这里的 ID 和你本地测试文件(LotteryConfig.storekit)里的 Product ID 一致
-let PRO_PRODUCT_ID = "com.lottery.bangbangda.pro"
-
-@MainActor
 class StoreManager: ObservableObject {
     static let shared = StoreManager()
     
+    // 🔥 核心属性：供 SettingsView 和 PaywallView 绑定
+    // 使用 UserDefaults 持久化，防止没网时状态丢失
+    @Published var isPro: Bool = UserDefaults.standard.bool(forKey: "isPro") {
+        didSet {
+            UserDefaults.standard.set(isPro, forKey: "isPro")
+            // 同时更新 UsageManager 状态
+            UsageManager.shared.setVipStatus(isPro)
+        }
+    }
+    
     @Published var products: [Product] = []
-    @Published var isPurchased: Bool = false
+    
+    // 🔥 统一管理 ID，外面调用 StoreManager.proProductID 即可
+    static let proProductID = "com.lottery.bangbangda.pro"
     
     private var updates: Task<Void, Never>? = nil
     
     private init() {
         // 启动监听器
         updates = newTransactionListenerTask()
-        // 启动时检查是否有权限
+        
         Task {
-            await updateCustomerProductStatus()
+            // 1. 先从苹果请求商品详情 (价格、描述)
+            await requestProducts()
+            // 2. 检查用户有没有买过 (更新 isPro 状态)
+            await updatePurchasedProducts()
         }
     }
     
@@ -29,82 +38,75 @@ class StoreManager: ObservableObject {
         updates?.cancel()
     }
     
-    // 1. 从苹果请求商品信息
+    // 1. 获取商品信息
+    @MainActor
     func requestProducts() async {
         do {
-            let storeProducts = try await Product.products(for: [PRO_PRODUCT_ID])
-            self.products = storeProducts
+            products = try await Product.products(for: [StoreManager.proProductID])
         } catch {
-            print("❌ 获取商品失败: \(error)")
+            print("Failed to load products: \(error)")
         }
     }
     
-    // 2. 发起购买
-    func purchase() async throws {
-        guard let product = products.first else { return }
-        
+    // 2. 购买逻辑
+    @MainActor
+    func purchase(_ product: Product) async throws {
         let result = try await product.purchase()
         
         switch result {
         case .success(let verification):
-            let transaction = try checkVerified(verification)
-            await updateCustomerProductStatus()
-            await transaction.finish()
-            
+            if let transaction = try? checkVerified(verification) {
+                self.isPro = true // 解锁 Pro
+                await transaction.finish()
+            }
         case .userCancelled, .pending:
             break
-        default:
+        @unknown default:
             break
         }
     }
     
-    // 3. 恢复购买
+    // 3. 恢复购买 (SettingsView 调用的就是这个)
+    @MainActor
     func restorePurchases() async {
         try? await AppStore.sync()
-        await updateCustomerProductStatus()
+        await updatePurchasedProducts()
     }
     
-    // 检查当前用户权限
-    func updateCustomerProductStatus() async {
-        var purchased = false
-        
+    // 4. 更新购买状态 (核心逻辑)
+    @MainActor
+    func updatePurchasedProducts() async {
+        var hasPro = false
+        // 遍历用户当前的有效权益
         for await result in Transaction.currentEntitlements {
-            do {
-                let transaction = try checkVerified(result)
-                if transaction.productID == PRO_PRODUCT_ID {
-                    purchased = true
+            if let transaction = try? checkVerified(result) {
+                if transaction.productID == StoreManager.proProductID {
+                    hasPro = true
                 }
-            } catch {
-                print("⚠️ 交易验证失败")
             }
         }
-        
-        self.isPurchased = purchased
-        UsageManager.shared.setVipStatus(purchased)
+        self.isPro = hasPro
+    }
+    
+    // 监听交易更新 (处理后台续费、家庭共享等)
+    private func newTransactionListenerTask() -> Task<Void, Never> {
+        Task(priority: .background) {
+            for await result in Transaction.updates {
+                if let transaction = try? self.checkVerified(result) {
+                    await self.updatePurchasedProducts()
+                    await transaction.finish()
+                }
+            }
+        }
     }
     
     // 验证签名
-    func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
+    private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
         switch result {
         case .unverified:
             throw StoreError.failedVerification
         case .verified(let safe):
             return safe
-        }
-    }
-    
-    // 监听交易更新
-    private func newTransactionListenerTask() -> Task<Void, Never> {
-        Task(priority: .background) {
-            for await result in Transaction.updates {
-                do {
-                    let transaction = try self.checkVerified(result)
-                    await self.updateCustomerProductStatus()
-                    await transaction.finish()
-                } catch {
-                    print("❌ 监听更新出错")
-                }
-            }
         }
     }
 }
