@@ -1,4 +1,3 @@
-
 import SwiftUI
 
 struct HistoryListView: View {
@@ -119,27 +118,34 @@ struct HistoryRow: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 BadgeLabel(text: record.type.displayName, color: themeColor)
-                                
-                                Spacer()
-                                Text(record.date.formatted(date: .abbreviated, time: .shortened))
-                                    .font(.caption)
-                                    .foregroundColor(.gray)
+                Spacer()
+                Text(record.date.formatted(date: .abbreviated, time: .shortened))
+                    .font(.caption)
+                    .foregroundColor(.gray)
             }
             
             HStack(spacing: 8) {
-                // 🔴 红球 (使用 .lotteryRed)
-                ForEach(record.primaryBalls, id: \.self) { number in
-                    MiniBall(number: number, color: .lotteryRed)
+                // 🔴 红球 / 数字球
+                // 🔥 修改点 1: 使用 enumerated()，因为排列3/5可能出现重复数字(如 5 5 5)
+                // 如果用 id: \.self 会导致 SwiftUI 渲染报错或顺序错乱
+                ForEach(Array(record.primaryBalls.enumerated()), id: \.offset) { index, number in
+                    MiniBall(
+                        number: number,
+                        color: .lotteryRed,
+                        // 🔥 修改点 2: 如果是老虎机(排列3/5/3D)，显示单数字"%d"(0-9)
+                        // 如果是大乐透/双色球，显示双位数"%02d"(01-35)
+                        format: record.type.style == .slotMachine ? "%d" : "%02d"
+                    )
                 }
                 
-                // 🔵 蓝球 (使用 .lotteryBlue)
+                // 🔵 蓝球 (通常只出现在大乐透/双色球)
                 if let blues = record.secondaryBalls, !blues.isEmpty {
                     Rectangle()
                         .fill(Color.gray.opacity(0.3))
                         .frame(width: 1, height: 20)
                     
-                    ForEach(blues, id: \.self) { number in
-                        MiniBall(number: number, color: .lotteryBlue)
+                    ForEach(Array(blues.enumerated()), id: \.offset) { index, number in
+                        MiniBall(number: number, color: .lotteryBlue, format: "%02d")
                     }
                 }
             }
@@ -178,13 +184,17 @@ struct BadgeLabel: View {
 struct MiniBall: View {
     let number: Int
     let color: Color
+    // 🔥 新增格式化参数，默认 %02d
+    var format: String = "%02d"
+    
     var body: some View {
         ZStack {
-            // 使用统一的 color
             Circle().fill(LinearGradient(colors: [color.opacity(0.9), color.opacity(0.6)], startPoint: .topLeading, endPoint: .bottomTrailing))
-            Text(String(format: "%02d", number)).font(.system(size: 14, weight: .bold, design: .monospaced)).foregroundColor(.white)
+            // 使用传入的 format
+            Text(String(format: format, number))
+                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                .foregroundColor(.white)
         }
         .frame(width: 28, height: 28)
     }
 }
-

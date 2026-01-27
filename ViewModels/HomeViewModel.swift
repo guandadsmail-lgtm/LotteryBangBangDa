@@ -62,8 +62,10 @@ class HomeViewModel: ObservableObject {
         let isStarting = (currentLottery.style == .bigMixer && status == .idle) ||
                          (currentLottery.style == .slotMachine && !isSpinning)
         
+        // 检查试用次数
         if isStarting && !UsageManager.shared.canPlay {
-            showLimitAlert = true
+            // 🔥 发送通知给 RootView，让它弹窗提示
+            NotificationCenter.default.post(name: .showPaywall, object: nil)
             return
         }
         
@@ -99,11 +101,23 @@ class HomeViewModel: ObservableObject {
     }
     
     func saveRecord() {
-        let reds = selectedBalls.filter { $0.color == "red" }.map { $0.number }.sorted()
-        let blues = selectedBalls.filter { $0.color == "blue" }.map { $0.number }.sorted()
+        // 1. 提取号码
+        var reds = selectedBalls.filter { $0.color == "red" }.map { $0.number }
+        var blues = selectedBalls.filter { $0.color == "blue" }.map { $0.number }
+        
+        // 🔥 核心修复点：根据彩种风格决定是否排序
+        if currentLottery.style == .bigMixer {
+            // 双色球/大乐透：顺序不重要，通常从小到大显示，所以需要排序
+            reds.sort()
+            blues.sort()
+        }
+        // ⚠️ 老虎机模式（3D/排列三）：顺序代表位数（百位/十位/个位），绝对不能排序！
+        // 所以这里没有 else 逻辑，保持原样
+        
+        // 3. 保存
         HistoryManager.shared.add(type: currentLottery, reds: reds, blues: blues)
         
-        // 🔥 计次点：保存记录代表完成一次使用
+        // 计次
         UsageManager.shared.incrementUsage()
     }
     
@@ -121,6 +135,7 @@ class HomeViewModel: ObservableObject {
     }
     
     func handleSlotMachineResult(numbers: [Int]) {
+        // 老虎机结果直接按顺序映射，保持了原始顺序
         self.selectedBalls = numbers.map { ($0, "red") }
         self.isSpinning = false
         self.isStoppingAnimation = false
@@ -129,7 +144,7 @@ class HomeViewModel: ObservableObject {
     }
 }
 
-// 🔥 解决编译错误的关键：在此定义状态枚举
+// 状态枚举
 enum LotteryGameStatus {
     case idle, mixingRed, extractingRed, waitingForBlue, mixingBlue, extractingBlue, finished
 }
